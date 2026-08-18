@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "schwabdev"
-version = "3.0.0"
+version = "4.0.0"
 description = "An easy and lightweight wrapper for using the Charles Schwab API."
 readme = { file = "README.md", content-type = "text/markdown" }
-authors = [{name = "Tyler Bowers", email = "tylerebowers@gmail.com"}]
+authors = [{name = "Tyler Bowers"}, {email = "tylerebowers@gmail.com"}]
 requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
@@ -45,3 +45,34 @@ Documentation = "https://tylerebowers.github.io/Schwabdev/"
 Source = "https://github.com/tylerebowers/Schwabdev"
 Youtube = "https://www.youtube.com/playlist?list=PLs4JLWxBQIxpbvCj__DjAc0RRTlBz-TR8"
 PyPI = "https://pypi.org/project/schwabdev/"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = "tests/"
+
+[project.optional-dependencies]
+context = [
+    'schwabdev_context',
+]
+
+examples = [
+    'python-dotenv',
+]
+
+[dependency-groups]
+test = [
+    'pytest',
+    'pytest-asyncio',
+    'coverage'
+]
+
+security = [
+    'pip-audit',
+    'pipdeptree'
+]
+
+
+[tool.coverage.run]
+omit = [
+    "*/tests/*"
+]

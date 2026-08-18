@@ -25,18 +25,22 @@
     <span class="n">tokens_db</span><span class="o">=</span><span class="s2">&quot;~/.schwabdev/tokens.db&quot;</span><span class="p">,</span>
     <span class="n">encryption</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-    <span class="n">call_for_auth</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">call_on_auth</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">open_browser_for_auth</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">validate_params</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
 </code></pre></div>
 
 <ul>
-<li><code>app_key (str)</code>: App key credential (e.g. <code>"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"</code>).</li>
+<li><code>app_key (str)</code>: App key credential (e.g. <code>"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"</code>)</li>
 <li><code>app_secret (str)</code>: App secret credential (e.g. <code>"xxxxxxxxxxxxxxxx"</code>).</li>
 <li><code>callback_url (str)</code>: URL for callback (e.g. <code>"https://127.0.0.1"</code>).</li>
 <li><code>tokens_db (str)</code>: Path to tokens database (e.g. <code>"~/.schwabdev/tokens.db"</code>).</li>
 <li><code>encryption</code> <code>(str | None)</code>: Encryption key to encrypt the tokens database, if <code>None</code> then no encryption is used. To create a key use <code>from cryptography.fernet import Fernet</code> and run <code>key = Fernet.generate_key()</code>, save the key using the string representation <code>key.decode()</code>. See example in <a target="_blank" href="https://github.com/tylerebowers/Schwabdev/blob/main/docs/examples/extra/encrypted_db_setup.py">encrypted_db_setup.py</a>.</li>
 <li><code>timeout (int)</code>: Request timeout in seconds (how long to wait for a response).</li>
-<li><code>call_for_auth (function | None)</code>: Function to call for authentication, the function is called with one argument: the URL to visit for authentication, it is expected to return the full callback URL or code from the callback URL after the user has signed in, see an example in <a target="_blank" href="https://github.com/tylerebowers/Schwabdev/blob/main/docs/examples/extra/capture_callback.py">capture_callback.py</a>.</li>
+<li><code>call_on_auth (function | None)</code>: Function to call for authentication, the function is called with one argument: the URL to visit for authentication, it is expected to return the full callback URL or code from the callback URL after the user has signed in, see an example in <a target="_blank" href="https://github.com/tylerebowers/Schwabdev/blob/main/docs/examples/extra/capture_callback.py">capture_callback.py</a>.</li>
+<li><code>open_browser_for_auth (bool)</code>: Whether to open a browser to visit the callback URL for authentication (in cases where attempting to open a webbrowser blocks the program).</li>
+<li><code>validate_params (bool)</code>: Whether to validate the parameters passed in api calls.</li>
 </ul>
 <hr />
 <p>Schwabdev also has an Asyncronous client (<a target="_blank" href="https://github.com/tylerebowers/Schwabdev/blob/main/docs/examples/async_api_calls.py">useful for concurrent api calls</a>) that can be used with <code>asyncio</code>:</p>
@@ -47,7 +51,9 @@
     <span class="n">tokens_db</span><span class="o">=</span><span class="s2">&quot;~/.schwabdev/tokens.db&quot;</span><span class="p">,</span>
     <span class="n">encryption</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-    <span class="n">call_for_auth</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">call_on_auth</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">open_browser_for_auth</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">validate_params</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">parsed</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span>
 </code></pre></div>
@@ -57,12 +63,25 @@
 <li><code>parsed (bool)</code>: If set to <code>True</code> then all API responses will be returned as parsed JSON objects (dictionaries/lists). This can be overridden on a per-call basis by passing <code>parsed=True</code> or <code>parsed=False</code> to the API call. Several API calls related to Orders are not parsed by default since they cannot be. The aim of autoparsing is to reduce the amount of code needed for the user.</li>
 </ul>
 <hr />
+<h3>Saving App key and secret</h3>
+<p>If you are using Schwabdev in many places on your computer then you can save your app key and app secret globally so you don't have to pass them to every Client() when made. This will create a file at ~/.schwabdev/env.json with the keys: app_key, app_secret, callback_url. You will no longer need to pass in your credentials to Client() when you create it.  </p>
+<p>Run this once with your credentials filled out to save them globally:  </p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">schwabdev</span>
+
+<span class="n">schwabdev</span><span class="o">.</span><span class="n">save_env_global</span><span class="p">(</span>
+    <span class="n">app_key</span><span class="o">=</span><span class="s2">&quot;your_app_key&quot;</span><span class="p">,</span>
+    <span class="n">app_secret</span><span class="o">=</span><span class="s2">&quot;your_app_secret&quot;</span><span class="p">,</span>
+    <span class="n">callback_url</span><span class="o">=</span><span class="s2">&quot;your_callback_url&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<hr />
 <h3>Notes</h3>
 <ul>
 <li>Multiple clients can be run at the same time, though they must share the same <code>tokens_db</code> file to avoid token conflicts and only one streamer can be run at a time.</li>
 <li>Clients are likely not thread-safe, but there are some inbuilt protections. If you want to use a client in multiple threads it is recommended to use a threading lock around the client calls.</li>
 <li>In order to use all API calls you must have both API sections added to your app: <strong>Accounts and Trading Production</strong> and <strong>Market Data Production</strong>.</li>
-<li>If you are storing your code in a GitHub repo then use <a target="_blank" href="https://pypi.org/project/python-dotenv/">dotenv</a> to store your keys, especially if you are using a git repo.
+<li>If you are storing your code in a GitHub repo then use <a target="_blank" href="https://pypi.org/project/python-dotenv/">dotenv</a> to store your keys.
 With a GitHub repo you can include <code>*.env</code> in the <code>.gitignore</code> file to stop your credentials from getting committed.</li>
 <li>Schwabdev uses the <code>logging</code> module to log/print information, warnings and errors. You can change the level of logging by setting
   <code>logging.basicConfig(level=logging.XXXX)</code>

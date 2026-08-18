@@ -4,4 +4,7 @@ __pycache__/
 *.json
 dist/
 schwabdev.egg-info/
-tokens.json
+tokens.db
+/build
+/docs/examples/tests
+.coverage

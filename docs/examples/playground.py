@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 import schwabdev
 
 if not sys.flags.interactive:
-    print("This file is intended to be run in interactive mode, with \"python -i async_playground.py\"\n"*3)
+    print("This file is intended to be run in interactive mode, with \"python -i playground.py\"\n"*3)
     sys.exit(1)
 
 print("Welcome to Schwabdev, The Unofficial Schwab API Python Wrapper!")

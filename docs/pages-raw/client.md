@@ -21,17 +21,21 @@ client = schwabdev.Client(
     tokens_db="~/.schwabdev/tokens.db",
     encryption=None,
     timeout=10,
-    call_for_auth=None,
+    call_on_auth=None,
+    open_browser_for_auth=True,
+    validate_params=True
 )
 ```
 
-* `app_key (str)`: App key credential (e.g. `"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`).
+* `app_key (str)`: App key credential (e.g. `"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`)
 * `app_secret (str)`: App secret credential (e.g. `"xxxxxxxxxxxxxxxx"`).
 * `callback_url (str)`: URL for callback (e.g. `"https://127.0.0.1"`).
 * `tokens_db (str)`: Path to tokens database (e.g. `"~/.schwabdev/tokens.db"`).
 * `encryption` `(str | None)`: Encryption key to encrypt the tokens database, if `None` then no encryption is used. To create a key use `from cryptography.fernet import Fernet` and run `key = Fernet.generate_key()`, save the key using the string representation `key.decode()`. See example in <a target="_blank" href="https://github.com/tylerebowers/Schwabdev/blob/main/docs/examples/extra/encrypted_db_setup.py">encrypted_db_setup.py</a>.
 * `timeout (int)`: Request timeout in seconds (how long to wait for a response).
-* `call_for_auth (function | None)`: Function to call for authentication, the function is called with one argument: the URL to visit for authentication, it is expected to return the full callback URL or code from the callback URL after the user has signed in, see an example in <a target="_blank" href="https://github.com/tylerebowers/Schwabdev/blob/main/docs/examples/extra/capture_callback.py">capture_callback.py</a>.
+* `call_on_auth (function | None)`: Function to call for authentication, the function is called with one argument: the URL to visit for authentication, it is expected to return the full callback URL or code from the callback URL after the user has signed in, see an example in <a target="_blank" href="https://github.com/tylerebowers/Schwabdev/blob/main/docs/examples/extra/capture_callback.py">capture_callback.py</a>.
+* `open_browser_for_auth (bool)`: Whether to open a browser to visit the callback URL for authentication (in cases where attempting to open a webbrowser blocks the program).
+* `validate_params (bool)`: Whether to validate the parameters passed in api calls.
 
 ---
 
@@ -45,7 +49,9 @@ client = schwabdev.ClientAsync(
     tokens_db="~/.schwabdev/tokens.db",
     encryption=None,
     timeout=10,
-    call_for_auth=None,
+    call_on_auth=None,
+    open_browser_for_auth=True,
+    validate_params=True,
     parsed = False,
 )
 ```
@@ -56,11 +62,29 @@ The parameters are the same as the synchronous client with the addition of:
 
 ---
 
+### Saving App key and secret
+
+If you are using Schwabdev in many places on your computer then you can save your app key and app secret globally so you don't have to pass them to every Client() when made. This will create a file at ~/.schwabdev/env.json with the keys: app_key, app_secret, callback_url. You will no longer need to pass in your credentials to Client() when you create it.  
+
+Run this once with your credentials filled out to save them globally:  
+
+```python
+import schwabdev
+
+schwabdev.save_env_global(
+    app_key="your_app_key",
+    app_secret="your_app_secret",
+    callback_url="your_callback_url",
+)
+```
+
+---
+
 ### Notes
 * Multiple clients can be run at the same time, though they must share the same `tokens_db` file to avoid token conflicts and only one streamer can be run at a time.
 * Clients are likely not thread-safe, but there are some inbuilt protections. If you want to use a client in multiple threads it is recommended to use a threading lock around the client calls.
 * In order to use all API calls you must have both API sections added to your app: **Accounts and Trading Production** and **Market Data Production**.
-* If you are storing your code in a GitHub repo then use <a target="_blank" href="https://pypi.org/project/python-dotenv/">dotenv</a> to store your keys, especially if you are using a git repo.
+* If you are storing your code in a GitHub repo then use <a target="_blank" href="https://pypi.org/project/python-dotenv/">dotenv</a> to store your keys.
 With a GitHub repo you can include `*.env` in the `.gitignore` file to stop your credentials from getting committed.
 * Schwabdev uses the `logging` module to log/print information, warnings and errors. You can change the level of logging by setting
   `logging.basicConfig(level=logging.XXXX)`

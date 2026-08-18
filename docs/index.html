@@ -22,11 +22,13 @@
         }
         .topbar {
             position: fixed;
+            display: left;
             top: 0;
             left: 0;
             width: 100%;
             height: 50px;
             background-color: #000080;
+            justify-content: space-between;
             align-items: center;
             color: #e6e6e6;
             display: flex;
@@ -82,6 +84,7 @@
 <body>
     <div class="topbar">
         <h1>Schwabdev Documentation</h1>
+        <h2>4.0.0</h2>
     </div>
 
     <div class="side-panel">
@@ -101,6 +104,13 @@
                     <li onclick="new_iframe_source('pages/orders.html')">Orders</li>
                 </ul>
             </li>
+            <li>Trader Context
+                <ul>
+                    <li onclick="new_iframe_source('pages/tc_details.html')">Details</li>
+                    <li onclick="new_iframe_source('pages/tc_examples.html')">Examples</li>
+                    <li onclick="new_iframe_source('pages/tc_changelog.html')">Changelog</li>
+                </ul>
+            </li>
             <li>Other
                 <ul>
                     <li onclick="new_iframe_source('pages/troubleshooting.html')">Troubleshooting</li>
@@ -114,6 +124,8 @@
                 <ul>
                     <li><a target="_blank" href="https://discord.gg/m7SSjr9rs9">Discord</a></li>
                     <li><a target="_blank" href="https://youtu.be/69cniU1CTf8">Youtube</a></li>
+                    <!--<li><a target="_blank" href="https://chatgpt.com/g/g-697d2ca9a1188191920e9c3c1eedc4f8-schwabdev-assistant">GPT Assistant</a></li>-->
+                    <li onclick="new_iframe_source('https://claude.site/public/artifacts/32a686ef-e1bf-4861-9b8e-17327ce05f94/embed')">Claude Assistant</li>
                     <li><a target="_blank" href="https://github.com/tylerebowers/Schwabdev">Github</a></li>
                     <li><a target="_blank" href="https://pypi.org/project/schwabdev/">PyPI</a></li>
                 </ul>

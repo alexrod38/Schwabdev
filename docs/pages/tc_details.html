@@ -1,0 +1,303 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>tc_details</title>
+    <link rel="stylesheet" href="../lib/pages.css">
+    <link rel="stylesheet" href="../lib/code.css">
+</head>
+<body>
+<h3>Schwabdev Trader Context (<a href="https://github.com/tylerebowers/Schwabdev-Context">repo</a>)</h3>
+<p>Trader Context is a unified wrapper for backtesting and live trading. Write one strategy function. Backtest it on cached minute candles, paper-trade it on live data, or
+deploy it against your real Schwab account - the strategy code is identical in all three. </p>
+<p>To install run: <code>pip install schwabdev[context]</code></p>
+<p>Before using please note the current limitations:</p>
+<ul>
+<li>Orders are single-leg equity only.</li>
+<li>Only MARKET, LIMIT and STOP orders are supported.</li>
+<li>Only BUY and SELL orders are supported.</li>
+<li>Backtesting is limited to 30 days (unless you record more, as all history is cached).</li>
+<li>You must record level 1 and level 2 data for backtesting, (candles are from price history).</li>
+<li>Candles are 1-minute OHLC+volume. </li>
+<li>The unified context api is still under development and may change significantly between versions.</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">schwabdev</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Context</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Strategy</span> <span class="c1"># example</span>
+
+<span class="n">tickers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;AMD&quot;</span><span class="p">,</span> <span class="s2">&quot;INTC&quot;</span><span class="p">]</span> <span class="c1"># what to test on</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">ctx</span> <span class="o">=</span> <span class="n">Context</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+<span class="n">strat</span> <span class="o">=</span> <span class="n">Strategy</span><span class="p">(</span><span class="n">tickers</span><span class="p">)</span>
+
+<span class="c1"># run a backtest</span>
+<span class="n">run</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">backtest</span><span class="p">(</span><span class="n">my_strategy</span><span class="p">,</span> <span class="n">tickers</span><span class="p">,</span> <span class="n">cash</span><span class="o">=</span><span class="mi">10_000</span><span class="p">,</span> <span class="n">history_days</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># deploy for live data (in beta release)</span>
+<span class="n">run</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">deploy</span><span class="p">(</span><span class="n">my_strategy</span><span class="p">,</span> <span class="n">tickers</span><span class="p">,</span> <span class="n">cash</span><span class="o">=</span><span class="mi">10_000</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Candles are fetched from Schwab once and cached in SQLite (<code>~/.schwabdev/candles.db</code> by default),
+so the second backtest over the same range hits no network at all.</p>
+<h2>The strategy</h2>
+<p>A strategy is any callable <code>strategy(tc, events)</code>:</p>
+<ul>
+<li><strong><code>tc</code></strong>: the trader context. Everything the strategy can see or do goes through it (below).
+  The same object type is handed to you in backtest, paper and live, so a strategy cannot tell
+  which mode it is running in.</li>
+<li><strong><code>events</code></strong>: the batch of new market events for this tick, in chronological order. Events are
+  plain dicts; every one carries a <code>"type"</code> tag telling you what it is:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th><code>type</code></th>
+<th>kind</th>
+<th>shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"c"</code></td>
+<td>candle</td>
+<td><code>{"symbol", "time", "open", "high", "low", "close", "volume", "type": "c"}</code></td>
+</tr>
+<tr>
+<td><code>"l1"</code></td>
+<td>level-1 quote</td>
+<td><code>{"symbol", "time", "bid", "ask", "last", "bid_size", "ask_size", "type": "l1"}</code></td>
+</tr>
+<tr>
+<td><code>"l2"</code></td>
+<td>level-2 book</td>
+<td><code>{"symbol", "time", "bids": [...], "asks": [...], "type": "l2"}</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>time</code> is UNIX milliseconds. Quotes are <em>deltas</em> — unchanged fields arrive as <code>None</code>; read the
+  merged latest quote from <code>tc.quotes[symbol]</code> instead of the raw event.</p>
+<p><strong>One tick = one timestamp.</strong> In a backtest, all events sharing the same timestamp are delivered
+in a single call; Schwab stamps minute candles on the minute boundary, so every ticker's candle
+for 09:31 arrives together. Live, a tick is one stream message.</p>
+<h3>Choosing what wakes the strategy</h3>
+<p><code>backtest()</code> and <code>deploy()</code> share three flags:</p>
+<table>
+<thead>
+<tr>
+<th>flag</th>
+<th>default</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>chart</code></td>
+<td><code>True</code></td>
+<td>minute candles wake the strategy</td>
+</tr>
+<tr>
+<td><code>level1</code></td>
+<td><code>False</code></td>
+<td>level-1 quotes wake the strategy</td>
+</tr>
+<tr>
+<td><code>level2</code></td>
+<td><code>False</code></td>
+<td>order-book snapshots wake the strategy</td>
+</tr>
+</tbody>
+</table>
+<p>Candles are <strong>always ingested</strong> regardless of <code>chart</code>, they settle simulated orders, price MARKET
+orders and mark positions, the flag only controls whether they <em>wake</em> you. <strong>Schwab has no history API for level-1/level-2, so in a backtest those replay only what you previously captured (see "Recording" below).</strong></p>
+<h2>The trader context (<code>tc</code>)</h2>
+<p>Read:</p>
+<table>
+<thead>
+<tr>
+<th>interface</th>
+<th>function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tc.candles[sym]</code></td>
+<td>candle history so far; latest is <code>tc.candles[sym][-1]</code></td>
+</tr>
+<tr>
+<td><code>tc.quotes[sym]</code></td>
+<td>latest merged level-1 quote</td>
+</tr>
+<tr>
+<td><code>tc.books[sym]</code></td>
+<td>latest level-2 snapshot</td>
+</tr>
+<tr>
+<td><code>tc.positions[sym]</code></td>
+<td>shares owned (partial fills included; absent = flat)</td>
+</tr>
+<tr>
+<td><code>tc.cash</code></td>
+<td>spendable cash = settled cash − amount reserved by your open BUY orders</td>
+</tr>
+<tr>
+<td><code>tc.sellable(sym)</code></td>
+<td>shares free to sell = owned − shares committed to open SELL orders</td>
+</tr>
+<tr>
+<td><code>tc.portfolio_value()</code></td>
+<td>settled cash + positions marked to their latest close</td>
+</tr>
+<tr>
+<td><code>tc.orders</code></td>
+<td>the order ledger, <code>symbol -&gt; id -&gt; record</code></td>
+</tr>
+<tr>
+<td><code>tc.starting_cash</code></td>
+<td>what the run began with</td>
+</tr>
+</tbody>
+</table>
+<p>Act:</p>
+<table>
+<thead>
+<tr>
+<th>interface</th>
+<th>function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tc.order(order_dict)</code></td>
+<td>place an order (Schwab order format, below); returns the order id</td>
+</tr>
+<tr>
+<td><code>tc.cancel(order_id)</code></td>
+<td>cancel a resting order; returns <code>True</code> if it will be canceled</td>
+</tr>
+<tr>
+<td><code>tc.plots[name]</code></td>
+<td>append <code>(time, value)</code> points; each name becomes a dashed overlay on the chart</td>
+</tr>
+</tbody>
+</table>
+<p>Overlay naming: a name containing a ticker (e.g. <code>"sma20 AMD"</code>) draws only on that ticker's panel;
+a name containing no ticker draws on every panel.</p>
+<p><code>tc.cash</code> and <code>tc.sellable()</code> are advisory; orders are not rejected for exceeding them, so check
+before placing.</p>
+<h2>Orders</h2>
+<p><code>tc.order()</code> takes the standard Schwab order dict. Supported: <strong>single-leg equity</strong> orders of type
+<strong>MARKET</strong>, <strong>LIMIT</strong>, <strong>STOP</strong> with instruction <strong>BUY</strong> or <strong>SELL</strong>, whole shares only. Anything
+else (options, multi-leg, trailing, fractional) raises <code>ValueError</code> before it goes anywhere.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">buy</span><span class="p">(</span><span class="n">sym</span><span class="p">,</span> <span class="n">qty</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">):</span>        <span class="c1"># a helper you&#39;ll probably write once</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;orderType&quot;</span><span class="p">:</span> <span class="s2">&quot;MARKET&quot;</span><span class="p">,</span> <span class="s2">&quot;session&quot;</span><span class="p">:</span> <span class="s2">&quot;NORMAL&quot;</span><span class="p">,</span> <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="s2">&quot;DAY&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;orderStrategyType&quot;</span><span class="p">:</span> <span class="s2">&quot;SINGLE&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;orderLegCollection&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;instruction&quot;</span><span class="p">:</span> <span class="s2">&quot;BUY&quot;</span><span class="p">,</span> <span class="s2">&quot;quantity&quot;</span><span class="p">:</span> <span class="n">qty</span><span class="p">,</span>
+                                    <span class="s2">&quot;instrument&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;symbol&quot;</span><span class="p">:</span> <span class="n">sym</span><span class="p">,</span> <span class="s2">&quot;assetType&quot;</span><span class="p">:</span> <span class="s2">&quot;EQUITY&quot;</span><span class="p">}}],</span>
+            <span class="o">**</span><span class="n">extra</span><span class="p">}</span>
+
+<span class="n">tc</span><span class="o">.</span><span class="n">order</span><span class="p">(</span><span class="n">buy</span><span class="p">(</span><span class="s2">&quot;AMD&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>                                  <span class="c1"># market</span>
+<span class="n">tc</span><span class="o">.</span><span class="n">order</span><span class="p">({</span><span class="o">**</span><span class="n">buy</span><span class="p">(</span><span class="s2">&quot;AMD&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="s2">&quot;orderType&quot;</span><span class="p">:</span> <span class="s2">&quot;LIMIT&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="mf">98.50</span><span class="p">})</span>
+<span class="n">tc</span><span class="o">.</span><span class="n">order</span><span class="p">({</span><span class="o">**</span><span class="n">sell</span><span class="p">(</span><span class="s2">&quot;AMD&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="s2">&quot;orderType&quot;</span><span class="p">:</span> <span class="s2">&quot;STOP&quot;</span><span class="p">,</span> <span class="s2">&quot;stopPrice&quot;</span><span class="p">:</span> <span class="mf">95.00</span><span class="p">})</span>
+</code></pre></div>
+
+<h3>How simulated fills work</h3>
+<p>Placing an order records it as OPEN — reserving cash (buys) or committing shares (sells) — and it
+settles on a <strong>later</strong> tick, so a backtest order can never fill on the candle that triggered it:</p>
+<ul>
+<li><strong>MARKET</strong>: fills at the open of the candle <code>fill_delay</code> bars after placement (default 2).</li>
+<li><strong>LIMIT</strong>: rests until a later candle's open or close crosses the limit; fills at the limit.</li>
+<li><strong>STOP</strong>: triggers intrabar off the candle's low (SELL) / high (BUY); fills at the stop, or at
+  the open if the bar gapped through it (the worse price).</li>
+</ul>
+<p>In live <strong>paper</strong> mode <code>fill_delay</code> is 0: MARKET fills immediately at the last price, LIMIT and
+STOP rest until the real market touches them.</p>
+<h3>Transaction costs</h3>
+<p>Simulated fills go through a cost model. The default charges 0.05 % of notional plus SEC/TAF
+regulatory fees on sells; slippage and spread are off. Tune it per run:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">schwabdev</span><span class="w"> </span><span class="kn">import</span> <span class="n">Costs</span>
+<span class="n">run</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">backtest</span><span class="p">(</span><span class="n">strat</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;AMD&quot;</span><span class="p">],</span> <span class="n">costs</span><span class="o">=</span><span class="n">Costs</span><span class="p">(</span><span class="n">half_spread</span><span class="o">=</span><span class="mf">0.0002</span><span class="p">,</span> <span class="n">slip</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">,</span> <span class="n">flat</span><span class="o">=</span><span class="mf">0.0</span><span class="p">))</span>
+</code></pre></div>
+
+<p><code>Costs(flat, per_share, pct, half_spread, slip, sec_fee, taf_per_share)</code>: half-spread and slip
+move the execution price against you; the rest are cash fees. A limit order is never filled through
+its own price, whatever the slippage setting. Real broker fills are never charged — Schwab's own
+commissions already apply.</p>
+<h2>Backtesting</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">run</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">backtest</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">tickers</span><span class="p">,</span>
+                      <span class="n">history_days</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span> <span class="n">cash</span><span class="o">=</span><span class="mi">10_000</span><span class="p">,</span>
+                      <span class="n">chart</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">level1</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">level2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                      <span class="n">costs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fill_delay</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                      <span class="n">report</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Returns a <code>BacktestContext</code>. Each run is self-contained — keep several to compare strategies or
+parameter sets:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">runs</span> <span class="o">=</span> <span class="p">[</span><span class="n">ctx</span><span class="o">.</span><span class="n">backtest</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;AMD&quot;</span><span class="p">],</span> <span class="n">report</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">strategies</span><span class="p">]</span>
+<span class="n">best</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">runs</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;net_return&quot;</span><span class="p">])</span>
+</code></pre></div>
+
+<ul>
+<li><code>run.report()</code>: reprint the text report.</li>
+<li><code>run.stats</code>: the underlying dict: <code>net_return</code>, <code>max_drawdown</code>, <code>sharpe</code>, <code>realized_pnl</code>,
+  <code>fees_paid</code>, <code>uniform_b&amp;h</code>, and per-ticker <code>win_rate</code> / <code>profit_factor</code> / <code>returns</code> / <code>trades</code>.</li>
+<li><code>run.equity</code>: the <code>(time, portfolio_value)</code> curve, one point per tick.</li>
+<li><code>run.serve()</code>: browser charts (non-blocking); <code>run.plot()</code> — same, but blocks like
+  <code>plt.show()</code>.</li>
+</ul>
+<p>Closed trades are matched <strong>FIFO at the share level</strong>, so partial fills, scale-ins and scale-outs
+are each accounted as their own round trips.</p>
+<p>With <code>plot=True</code> the viewer opens <em>before</em> the replay and streams the backtest as it runs.</p>
+<h2>Recording level-1 / level-2</h2>
+<p>Schwab offers no quote/book history, so capture it yourself and backtests will replay it:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">ctx</span><span class="o">.</span><span class="n">record</span><span class="p">([</span><span class="s2">&quot;AMD&quot;</span><span class="p">,</span> <span class="s2">&quot;INTC&quot;</span><span class="p">],</span> <span class="n">chart</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">level1</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">level2</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Uses the stream's <code>start_auto</code>, so it opens and closes with market hours — leave the process
+running and it records every trading day. Any <code>start_auto</code> kwargs pass through (<code>start_time</code>,
+<code>stop_time</code>, <code>on_days</code>, ...); <code>verbose=False</code> silences the per-message counters. Recorded candles
+land in the same cache backtests read, so recording also backfills chart history for free.</p>
+<p>Later:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">run</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">backtest</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;AMD&quot;</span><span class="p">],</span> <span class="n">history_days</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">level1</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">level2</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+
+<h2>Going live</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">ctx</span> <span class="o">=</span> <span class="n">Context</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>                        <span class="c1"># paper (default)</span>
+<span class="n">ctx</span> <span class="o">=</span> <span class="n">Context</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">account_hash</span><span class="o">=...</span><span class="p">)</span>      <span class="c1"># real orders (account hash = account to place orders on)</span>
+
+<span class="n">session</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">deploy</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;AMD&quot;</span><span class="p">,</span> <span class="s2">&quot;INTC&quot;</span><span class="p">],</span>
+                    <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>             <span class="c1"># live-streaming browser viewer</span>
+                    <span class="n">chart</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">level1</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">level2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">record</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>           <span class="c1"># persist everything subscribed</span>
+</code></pre></div>
+
+<ul>
+<li><strong>Paper vs live</strong> is decided when the <code>Trader</code> is constructed. Without <code>live_orders=True</code>
+  nothing can ever leave the process, the session paper-trades the identical strategy on live data.</li>
+<li><strong><code>cash</code></strong> defaults to your account's real settled cash when live (positions are adopted too, so
+  <code>tc.sellable()</code> knows what you already own), or 10 000 for paper. Pass a number to override.</li>
+<li><strong><code>record=True</code></strong> writes every subscribed data type to the DB through the same pipeline
+  <code>record()</code> uses, feeding future backtests.</li>
+<li>Live fills, cancels and rejections arrive on Schwab's account-activity stream and are settled
+  through the same accounting engine the backtester uses, so <code>tc.cash</code> / <code>tc.positions</code> stay
+  consistent.</li>
+</ul>
+<p><code>session</code> is a <code>LiveContext</code>, also available as <code>trader.live</code>. Stop everything with
+<code>trader.stop()</code>.</p>
+<h2>The viewer</h2>
+<p><code>run.serve()</code> / <code>plot=True</code> starts a local web server (first free port from 8000) and opens the
+browser. One panel per ticker: close line, volume, your <code>tc.plots</code> overlays, and buy/sell markers
+labelled with the executed quantity and price. The page polls once a second, so a running backtest
+or live session streams in without refreshing.</p>
+<h2>Notes and limits</h2>
+<ul>
+<li>One <code>Data</code> store (one SQLite file) per <code>Trader</code>; pass <code>cache_db=</code> to keep separate universes.</li>
+<li>Minute-candle history is fetched in 10-day chunks at 2 requests/sec — the first pull of
+  90 days × many tickers takes a few minutes; after that it's cached.</li>
+<li>Timestamps are UNIX ms everywhere; candles are stamped at the start of the minute they cover.</li>
+<li>Order rate limits (120/min, 4 000/day) are Schwab's, not enforced here.</li>
+<li>This module is in development. Use at your own risk especially with live orders.</li>
+</ul>
+</body>
+</html>
+    

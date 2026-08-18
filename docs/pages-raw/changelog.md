@@ -1,3 +1,29 @@
+## Version 4.0.0
+* Added Schwabdev Trader Context as an optional submodule
+* Added the ability to save App keys globally by using `save_env_global`
+* Added session retries for requests to improve robustness
+* Added parameter validation for every request (turn off in client with `validate_params=False`)
+* Added public pytest test suite
+* Various other bugfixes and enhancements
+
+## Version 3.0.5
+* Added support for new app secret / app key lengths
+
+## Version 3.0.4
+* Better handling of stream crashes
+* Improved handling of streamer info
+* Added param to stop webbrowser from opening
+
+## Version 3.0.3
+* Better handling of internal streamer info api request.
+
+## Version 3.0.2
+* Improve datetime handling
+* Move version string from `client.version` to `schwabdev.__version__`
+
+## Version 3.0.1
+* Issue with async streamer token updating fixed.
+
 ## Version 3.0.0
 * Added Asyncronous Client (`schwabdev.ClientAsync`) for async/await usage
 * Added Asyncronous Streamer (`schwabdev.StreamAsync`) for async/await usage

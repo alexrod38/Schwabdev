@@ -3,7 +3,7 @@
 Watch the <a target="_blank" href="https://youtu.be/69cniU1CTf8">Youtube</a> tutorial.
 
 1. **Set up your Schwab developer account and app:**
-    1. <a target="_blank" href="https://developer.schwab.com/login">Create a Schwab developer account"</a>. Use the **same email** as in your Schwab brokerage account.
+    1. <a target="_blank" href="https://developer.schwab.com/login">Create a Schwab developer account</a>. Use the **same email** as in your Schwab brokerage account.
     2. Request access to the <a target="_blank" href="https://developer.schwab.com/products/trader-api--individual">Trader API - Individual</a>  API product.. 
     2. Make a new Schwab individual developer app in the <a target="_blank" href="https://developer.schwab.com/dashboard/apps">dashboard</a> with callback URL `https://127.0.0.1`
         * Multiple callbacks can be used by separating them with commas, e.g. you might also want a callback with a port on the end: `https://127.0.0.1:7777`
@@ -20,7 +20,7 @@ Watch the <a target="_blank" href="https://youtu.be/69cniU1CTf8">Youtube</a> tut
 3. **Start Coding** 
     1. The first time you run, you will have to sign in to your Schwab account using the generated link in the terminal.
     2. After signing in, agree to the terms, and select account(s). Then you will have to copy the link in the address bar and paste it into the terminal.
-    3. Examples are in the <a target="_blank" href="https://github.com/tylerebowers/Schwabdev/blob/main/docs/examples/">`docs/examples/`</a> folder remember to [add your keys to a .env](examples.html) file.
+    3. Examples are in the <a target="_blank" href="https://github.com/tylerebowers/Schwabdev/blob/main/docs/examples/">`docs/examples/`</a> folder, remember to [add your keys to a .env](examples.html) file.
     4. Questions? Join the <a target="_blank" href="https://discord.gg/m7SSjr9rs9">Discord Group</a> or consult the documentation.
 
 ---
@@ -39,7 +39,8 @@ print(client.quotes("AMD").json())  # make api calls
 
 ### Notes
 
-* If you are storing your code in a GitHub repo then use <a target="_blank" href="https://pypi.org/project/python-dotenv/">dotenv</a> to store your keys.
+* Schwabdev has a <a target="_blank" href="https://chatgpt.com/g/g-697d2ca9a1188191920e9c3c1eedc4f8-schwabdev-assistant">ChatGPT</a> assistant, which generally works well and can be a good starting point.
+* If you are storing your code in a GitHub repo use <a target="_blank" href="https://pypi.org/project/python-dotenv/">dotenv</a> to store your keys.
 * **On MacOS** you need to make sure that you installed Python certificates.
   If you haven't or aren't sure, then in a terminal run:
   `open /Applications/Python\ 3.11/Install\ Certificates.command`

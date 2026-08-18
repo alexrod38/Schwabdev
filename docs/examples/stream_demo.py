@@ -29,7 +29,6 @@ def main():
         print("demo_handler: " + message)
     streamer.start(my_handler)
 
-
     # start steamer with default response handler (print):
     # streamer.start()
 
